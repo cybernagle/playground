@@ -1,6 +1,8 @@
 use yew::prelude::*;
+use serde::Deserialize;
+use gloo_net::http::Request;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize)]
 struct Video {
     id: usize,
     title: String,
@@ -10,20 +12,21 @@ struct Video {
 
 
 #[derive(Properties, PartialEq)]
-struct VideoListProps {
+struct VideosListProps {
     videos: Vec<Video>,
+    //on_click: Callback<Video>
     on_click: Callback<Video>
 }
 
-#[function_component(VideoList)]
-fn videos_list(VideoListProps { videos, on_click }: &VideoListProps) -> Html {
+#[function_component(VideosList)]
+fn videos_list(VideosListProps { videos , on_click }: &VideosListProps) -> Html {
     let on_click = on_click.clone();
     videos.iter().map(|video| {
         let on_video_select = {
             let on_click = on_click.clone();
             let video = video.clone();
             Callback::from(move |_| {
-                on_click.omit(video.clone())
+                on_click.emit(video.clone())
             })
         };
 
@@ -33,23 +36,55 @@ fn videos_list(VideoListProps { videos, on_click }: &VideoListProps) -> Html {
     }).collect()
 }
 
+#[derive(Properties, PartialEq)]
+struct VideosDetailsProps {
+    video: Video,
+}
+
+#[function_component(VideoDetails)]
+fn video_details(VideosDetailsProps { video }: &VideosDetailsProps ) -> Html {
+    html! {
+        <div>
+            <h3>{ video.title.clone() }</h3>
+             <img src="https://via.placeholder.com/640x360.png?text=Video+Player+Placeholder" alt="video thumbnail" />
+        </div>
+    }
+}
+
 #[function_component(App)]
 fn app() -> Html {
 
-    let videos = vec![
-        Video {
-            id: 1,
-            title: "launch".to_string(),
-            speaker: "nagle".to_string(),
-            url: "https://www.bilibili.com/video/BV1Qs4y1j7jV/?spm_id_from=333.1007.tianma.2-1-4.click".to_string()
-        },
-        Video {
-            id: 2,
-            title: "launch2".to_string(),
-            speaker: "nagle".to_string(),
-            url: "https://www.bilibili.com/video/BV1kU4y1p7Jb/?spm_id_from=333.788.recommend_more_video.0".to_string()
-        },
-    ];
+    let videos = use_state(|| vec![]);
+    {
+        let videos = videos.clone();
+        use_effect_with_deps(move |_| {
+            let videos = videos.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let fetched_videos: Vec<Video> = Request::get("/tutorial/data.json")
+                    .send()
+                    .await
+                    .unwrap()
+                    .json()
+                    .await
+                    .unwrap();
+                videos.set(fetched_videos);
+            });
+            || ()
+        }, ())
+    }
+
+    let selected_video = use_state( || None);
+
+    let on_video_select = {
+        let selected_video = selected_video.clone();
+        Callback::from(move |video: Video| {
+            selected_video.set(Some(video))
+        })
+    };
+
+    let details = selected_video.as_ref().map(|video| html! {
+        <VideoDetails video={video.clone()} />
+    });
 
 
     html! {
@@ -57,15 +92,19 @@ fn app() -> Html {
         <h1>{ "RustConf Explorer" }</h1>
         <div>
             <h3>{"Vides to watch"}</h3>
-            <VideoList videos={videos} />
+            <VideosList videos={(*videos).clone()} on_click={on_video_select.clone() } />
         </div>
+        { for details }
+        /*
         <div>
             <h3>{ "John Doe: Building and breaking things" }</h3>
             <img src="https://via.placeholder.com/640x360.png?text=Video+Player+Placeholder" alt="video thumbnail" />
         </div>
+        */
       </>
     }
 }
+
 fn main() {
     yew::Renderer::<App>::new().render();
 }
