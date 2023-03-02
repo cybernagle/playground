@@ -31,7 +31,7 @@ fn videos_list(VideosListProps { videos , on_click }: &VideosListProps) -> Html 
         };
 
         html! {
-            <p key={video.id} onclick={on_video_select}>{format!("{}: {}", video.speaker, video.title)}</p>
+            <p class={classes!("bg-red-100")} key={video.id} onclick={on_video_select} >{format!("{}: {}", video.speaker, video.title)}</p>
         }
     }).collect()
 }
@@ -90,7 +90,7 @@ fn app() -> Html {
     html! {
       <>
         <h1>{ "RustConf Explorer" }</h1>
-        <div>
+        <div class={classes!("container")}>
             <h3>{"Vides to watch"}</h3>
             <VideosList videos={(*videos).clone()} on_click={on_video_select.clone() } />
         </div>
